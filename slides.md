@@ -1,6 +1,6 @@
 ---
 # You can also start simply with 'default'
-theme: seriph
+theme: dracula
 # random image from a curated Unsplash collection by Anthony
 # like them? see https://unsplash.com/collections/94734566/slidev
 background: https://cover.sli.dev
@@ -45,7 +45,9 @@ mdc: true
 
 # What is Alias?
 
-<Youtube autoplay id="Q3INqSNbmZU" width="100%" height="100%" />
+<SlidevVideo autoplay controls>
+    <source src="/assets/what-is-alias.mp4" type="video/mp4">
+</SlidevVideo>
 
 ---
 
@@ -55,6 +57,18 @@ mdc: true
 - Pure QML/Qt Quick GUI implementation
 - Lots and lots of data to transfer to GUI and back
 - Extensive use of an internal data structure that we cannot change
+
+---
+
+# What is the problem we are trying to solve?
+
+- Reduce code bloat
+- Improve productivity
+- Make our system more configurable
+
+---
+
+# How do we represent data?
 
 ---
 
@@ -75,10 +89,11 @@ SymbolTable data{
 ```cpp
 void create() {
   ControlBox box;
-  box.addInt(IntegerSymbol{}, "Degrees");
+  box.addInt(IntegerSymbol{}, "Degrees"); // Represents an integer input field
   box.addInt(IntegerSymbol{}, "Spans");
-  box.addSring(StringSymbol{}, "Value");
+  box.addSring(StringSymbol{}, "Value"); // Represents a string input field
   box.addSring(FunctionSymbol{[]() {}}, "calculate");
+  box.open();
 }
 ```
 
@@ -201,6 +216,7 @@ Editor {
 Editor {
     property var editorData
 
+    // `dynamicProperties` is a `QQmlPropertyMap`
     customProperty: editorData.dynamicProperties.customData
     secondTitle: editorData.dynamicProperties.secondTitle
 }
@@ -238,6 +254,25 @@ Q_INVOKABLE void notFun4() {}
 
 </v-click>
 
+<v-click>
+
+What happens when requirements change and we need to expose different things?
+
+</v-click>
+
+<v-click>
+
+```cpp
+class awQuick::ControlColor : public ControlBase {
+  // ...
+  Q_PROPERTY(float newData READ getNewData WRITE setNewData NOTIFY newDataChanged)
+};
+```
+
+And recompile...
+
+</v-click>
+
 <!--
 - We want to do as much work as possible in the core, all the logic stays there. Including opening
   dialogs, updating properties etc.
@@ -266,7 +301,11 @@ Q_INVOKABLE void notFun4() {}
 
 ---
 
-# Realization
+# Realization...
+
+---
+layout: center
+---
 
 ![this-sucks](./assets/this-sucks.gif)
 
@@ -274,22 +313,24 @@ Q_INVOKABLE void notFun4() {}
 
 # Other Realizations
 
-- We have way too much boilerplate code to expose data
+- Too much boilerplate code to expose data
 - Virtual interfaces create a dependency that we don't like
-- Our data is like JSON
 - These data types are generic, what they represent just changes based on context
 - The symbols we add to the table might be used for other purposes, so we need more freedom over
   how much we expose
 - We want to control all the data flow from a single point
+- Our data is like JSON
 
 ---
+
+# Enter `QMetaObject` "Abuse"
 
 ```cpp
 SymbolTable data{
     {"degrees", IntSymbol{32}},
     {"spans", IntSymbol{-1}},
     {"value", StringSymbol{"Timmy!"}},
-    {"greet", FunctionSymbol{[]() { std::clog << "Hello, Qt Athens!\n"; }}},
+    {"greet", FunctionSymbol{[]() { std::clog << "Hello all!\n"; }}},
 };
 ```
 
@@ -300,15 +341,15 @@ SymbolTableModel {
     property int degrees
     property int spans
     property string value
-    property var greet () => {}
-    // Will be possible at some point... QTBUG-XXXXX
-    property function greet () => {}
+    property var greet: () => {}
+    // Will be possible at some point... QTBUG-104220
+    property function greet: () => {}
 
     Component.onCompleted: {
         console.log(degrees) // Prints "32"
         console.log(spans) // Prints "-1"
         console.log(value) // Prints "Timmy!"
-        greet() // Prints "Hello, Qt Athens!"
+        greet() // Prints "Hello all!"
     }
 }
 ```
@@ -338,48 +379,52 @@ SymbolTableModel {
 
 ---
 
-```qml
-SymbolTableModel {
-    property string title: ""
-    property string type: ""
-    property bool visible: true
-    property bool enabled: true
-}
-```
-
-<v-click>
-
-```qml
-SymbolTableModel {
-    property string title: ""
-    property string type: ""
-}
-```
-
-</v-click>
-
-<v-click>
-
-```qml
-SymbolTableModel {
-    property string title: ""
-    property string type: ""
-    property bool visible: true
-    property bool enabled: true
-}
-```
-
-</v-click>
-
-<v-click>
-
 We just expose what we need, no extra code needed to change the data here.
 
-</v-click>
+```qml
+SymbolTableModel {
+    property string title: ""
+    property string type: ""
+    property bool visible: true
+    property bool enabled: true
+}
+```
+
+```qml
+SymbolTableModel {
+    property string title: ""
+    property string type: ""
+}
+```
+
+```qml
+SymbolTableModel {
+    property string title: ""
+    property string type: ""
+    property int counter: 0
+}
+```
 
 ---
 
-Ability to play with syntax to make exposing data more ergonomic.
+**Supports inheritance**
+
+```qml
+
+// BaseControl.qml
+SymbolTableModel {
+    property string title: ""
+    property string type: ""
+}
+
+BaseControl {
+    property int counter: 0
+}
+```
+
+---
+
+**Ability to play with syntax to make exposing data more ergonomic**
 
 ```qml
 SymbolTableModel {
@@ -391,7 +436,7 @@ SymbolTableModel {
 }
 ```
 
----
+<v-click>
 
 Ability to customize the underlying mechanics of how data is exposed.
 
@@ -404,6 +449,21 @@ SymbolTableModel {
 ```
 
 We use `ControlTableList` to dynamically filter our model based on some conditions.
+
+</v-click>
+
+---
+
+The way the underlying data is expressed is fully customizable.
+
+```qml
+SymbolTableModel {
+    property Person manager: Person {
+        property string name
+        // And other related properties...
+    }
+}
+```
 
 ---
 
@@ -420,10 +480,60 @@ graph LR;
 
 ```
 
+<v-click>
+
+````md magic-move
+```cpp
+// SomeWhereOverTheRainbow.cpp
+symbol.notify();
+```
+```cpp
+// SomeWhereOverTheRainbow.cpp
+symbol.notify();
+
+// SymbolTableModel.cpp
+symbol.sigModified.connect(this, [](...) {
+    // The change is handled and the associated `QProperty` is updated.
+})
+```
+````
+
+</v-click>
+
+<v-click>
+
+```qml
+SymbolTableModel {
+    property int symbol
+
+    onSymbolChanged: {
+        console.log("Property value changed")
+    }
+}
+```
+
+</v-click>
+
 ---
 
+````md magic-move
 ```cpp
 class SymbolTableModel : public QObject, public QQmlParserStatus {
+};
+```
+```cpp
+class SymbolTableModel : public QObject, public QQmlParserStatus {
+  Q_PROPERTY(SymbolTableProxy* table READ table WRITE setTable
+                                     NOTIFY tableChanged FINAL )
+
+  explicit SymbolTableModel(QObject *parent = nullptr);
+};
+```
+```cpp
+class SymbolTableModel : public QObject, public QQmlParserStatus {
+  Q_PROPERTY(SymbolTableProxy* table READ table WRITE setTable
+                                     NOTIFY tableChanged FINAL )
+
   explicit SymbolTableModel(QObject *parent = nullptr);
 
   void componentComplete() override final;
@@ -432,54 +542,79 @@ class SymbolTableModel : public QObject, public QQmlParserStatus {
   bool initialized() const;
 
 private:
-  SymbolBindingMap m_symbolBindings{};
-  TableBindingMap m_tableBindings{};
-  SignalBindingMap m_signalBindings{};
-
-  std::stack<SymbolPropertyBinding *> m_invalidSymbolBindings{};
-  std::stack<SymbolTablePropertyBinding *> m_invalidTableBindings{};
-  std::stack<SymbolSignalBinding *> m_invalidSignalBindings;{}
-
-  std::unique_ptr<PropertyCache> m_propertyCache{};
-  std::unique_ptr<MethodCache> m_methodCache{};
-
-private:
-  void setTable(SymbolTable_H value);
   void initializeProperties();
   void deinitializeProperties();
   void disconnectProperties();
 };
 ```
+````
 
 ---
 
+````md magic-move
 ```cpp
 class SymbolPropertyBindingBase {};
-
-class SymbolPropertyBinding : public SymbolPropertyBindingBase {};
-
-class SymbolTablePropertyBinding : public SymbolPropertyBindingBase {};
-
-class awQuick::SymbolSignalBinding : public SymbolPropertyBindingBase {};
-
-class awQuick::QMLFunctionSymbolExecutor : public QObject {
-public:
-  QMLFunctionSymbolExecutor(const FunctionSymbol *funcSymbol, QObject &parent);
-
-  Q_INVOKABLE QVariant call(const QVariantList &args) const;
-
-private:
-  const TuiFunctionSymbol *m_funcSymbol{nullptr};
-};
 ```
+```cpp
+class SymbolPropertyBinding : public SymbolPropertyBindingBase {};
+```
+```cpp
+class SymbolPropertyBinding : public SymbolPropertyBindingBase {};
+class SymbolTablePropertyBinding : public SymbolPropertyBindingBase {};
+```
+```cpp
+class SymbolPropertyBinding : public SymbolPropertyBindingBase {};
+class SymbolTablePropertyBinding : public SymbolPropertyBindingBase {};
+class SymbolSignalBinding : public SymbolPropertyBindingBase {};
+```
+```cpp
+class SymbolPropertyBinding : public SymbolPropertyBindingBase {};
+class SymbolTablePropertyBinding : public SymbolPropertyBindingBase {};
+class SymbolSignalBinding : public SymbolPropertyBindingBase {};
+
+class awQuick::QMLFunctionSymbolExecutor : public QObject { };
+```
+````
 
 ---
 
-```cpp {all|1-1|2-3|4-12|13-18|all}
+````md magic-move
+```cpp
 if (symbolType == TuiSymbol::Type::UI_FUNCTION_SYMBOL) {
-  QJSEngine *engine = qjsEngine(obj.parent());
-  assert(engine);
+}
+```
+```cpp
+if (symbolType == TuiSymbol::Type::UI_FUNCTION_SYMBOL) {
+  QJSValue function =
+      engine->evaluate("(function(obj) { return (function() { "
+                       "let args = [];"
+                       "for (let i = 0; i < arguments.length; i++) {"
+                       " args.push(arguments[i])"
+                       "};"
+                       "return this.call(args); }).bind(obj) })");
+  assert(function.isCallable());
+}
+```
+```cpp
+if (symbolType == TuiSymbol::Type::UI_FUNCTION_SYMBOL) {
+  QJSValue function =
+      engine->evaluate("(function(obj) { return (function() { "
+                       "let args = [];"
+                       "for (let i = 0; i < arguments.length; i++) {"
+                       " args.push(arguments[i])"
+                       "};"
+                       "return this.call(args); }).bind(obj) })");
+  assert(function.isCallable());
 
+  QJSValue boundFunction = function.call(
+      QJSValueList{engine->toScriptValue(new QMLFunctionSymbolExecutor{
+          static_cast<const TuiFunctionSymbol *>(&symbol),
+          const_cast<QObject &>(obj)})});
+  assert(boundFunction.isCallable());
+}
+```
+```cpp
+if (symbolType == TuiSymbol::Type::UI_FUNCTION_SYMBOL) {
   QJSValue function =
       engine->evaluate("(function(obj) { return (function() { "
                        "let args = [];"
@@ -498,24 +633,20 @@ if (symbolType == TuiSymbol::Type::UI_FUNCTION_SYMBOL) {
   return QVariant::fromValue<QJSValue>(boundFunction);
 }
 ```
+````
 
 ---
 
-```cpp
-// Also supports return types.
-QVariant QMLFunctionSymbolExecutor::call(const QVariantList &args) const {
-  assert(m_funcSymbol);
-  FunctionSymbol::ArgList argList;
+```qml {1-3,10|1-6,9,10|all}
+SymbolTableModel {
+    property var calculateThings
+    property var getSomeValue
 
-  auto *base = qobject_cast<SymbolPropertyBindingBase *>(parent());
-
-  if (!args.isEmpty()) {
-    for (const auto &arg : args) {
-      argList.push_back(convertVariant(arg));
+    Component.onCompleted: {
+        calculateThings()
+        // Functions can also have return values!
+        const value = getSomeValue()
     }
-  }
-
-  return argToQVariant(m_funcSymbol->invoke(argList));
 }
 ```
 
@@ -523,10 +654,85 @@ QVariant QMLFunctionSymbolExecutor::call(const QVariantList &args) const {
 
 # Where do we go from here?
 
-- No performance issues yet, but we'll investigate to make it
+- No performance issues yet, we are on the look out for potential bottlenecks
+> For example:
+> - Executing JS is expensive, so we cache what we can for each `QJSEngine`
 - Look into QML compiler extension to see how this would work
 - Make introspection and debugging easier
 
 ---
+layout: center
+---
+
+# Bonus Content!
+
+---
+
+<SlidevVideo autoplay controls>
+    <source src="/assets/docking-video.mp4" type="video/mp4">
+</SlidevVideo>
+
+---
+
+# High Level Features
+
+- Fully customizable
+> Customization for which window can be docked is done through attached type.
+- Data driven
+> Easy to save and restore docking configurations
+- Flexible
+> Docking layout is done with a positioner that can be overridden
+
+---
+
+# Declarative Support
+
+```qml
+MainDockController {
+    DockController {
+        location: DockController.Left
+        model: DockingGroupModel {
+            DockingGroupData {}
+        }
+    }
+
+    // Multiple `DockController`s can be docked to each side.
+    DockController {
+        location: DockController.Left
+        model: DockingGroupModel {
+            DockingGroupData {}
+        }
+    }
+}
+```
+
+---
+
+# High Customization
+
+```qml
+MainDockController {
+    dockControllerDelegate: DockController {
+        // This allows for all sorts of design choices and customizations.
+    }
+    // Customization for where the drop zones are for docking.
+    hotspots: [HotSpot {}]
+}
+```
+
+---
+
+```mermaid
+flowchart LR
+    A(["MainDockController"]) --- B("DockController") & DL("DockingLayout")
+    B --- C("DockingGroup") & D("HotSpot")
+    C --- D
+```
+
+---
+layout: center
+---
 
 # Thank You!
+
+![adios](./assets/adios.gif)
