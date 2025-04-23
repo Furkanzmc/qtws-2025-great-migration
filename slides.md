@@ -3,7 +3,8 @@
 theme: dracula
 # random image from a curated Unsplash collection by Anthony
 # like them? see https://unsplash.com/collections/94734566/slidev
-background: https://cover.sli.dev
+layout: image
+image: ./assets/title-slide.png
 # some information about your slides (markdown enabled)
 title: The Great Migration
 info: |
@@ -28,18 +29,6 @@ mdc: true
     overflow-y: scroll;
 }
 </style>
-
-# The Great Migration: Transferring Millions of Data Objects to QML with Speed and Comfort
-
-> Furkan Uzumcu
->
-> ·[Autodesk](https://www.autodesk.com/products/alias-products/overview)
->
-> [GitHub/Furkanzmc](https://github.com/Furkanzmc)
->
-> [zmc.space](https://zmc.space)
->
-> [furkan.uzumcu@autodesk.com](mailto:furkan.uzumcu@autodesk.com)
 
 ---
 
@@ -685,6 +674,15 @@ layout: center
 
 ---
 
+```mermaid
+flowchart LR
+    A(["MainDockController"]) --- B("DockController") & DL("DockingLayout")
+    B --- C("DockingGroup") & D("HotSpot")
+    C --- D
+```
+
+---
+
 # Declarative Support
 
 ```qml
@@ -722,17 +720,13 @@ MainDockController {
 
 ---
 
-```mermaid
-flowchart LR
-    A(["MainDockController"]) --- B("DockController") & DL("DockingLayout")
-    B --- C("DockingGroup") & D("HotSpot")
-    C --- D
-```
+# Pain points
+
+- Window management
+- Event redirection
+- `Item` size management
 
 ---
-layout: center
+layout: image
+image: ./assets/thank-you-slide.png
 ---
-
-# Thank You!
-
-![adios](./assets/adios.gif)
