@@ -46,6 +46,13 @@ mdc: true
 - Pure QML/Qt Quick GUI implementation
 - Lots and lots of data to transfer to GUI and back
 - Extensive use of an internal data structure that we cannot change
+> Refer to [QtWS 2023: Porting a Large Scale Non-Qt Legacy CAD Application to Qt/QML: The Good, The
+> Bad, and The Ugly](https://www.youtube.com/watch?v=7Omr6hlxEhY) for details.
+
+<!--
+- The project took 5 years to complete.
+- Refer to my other talk for details.
+-->
 
 ---
 
@@ -55,6 +62,45 @@ mdc: true
 - Improve productivity
 - Make our system more configurable
 
+<!--
+- The goal is to make sure that we are not constrained by our architecture, and UX can go crazy with
+  whatever they want to do.
+-->
+
+---
+layout: center
+---
+
+![custom-puck](./assets/custom-puck.gif)
+
+> Alias Custom Puck
+
+---
+layout: center
+---
+
+![layer-bar](./assets/alias-layerbar-2026.gif)
+
+> New way to create a layer
+
+---
+layout: center
+---
+
+![transform-cv](./assets/transform-cv.png)
+
+> New way to represent combo boxes
+
+---
+
+More complex cases...
+
+<SlidevVideo autoplay controls>
+    <source src="/assets/alias-editors.mp4" type="video/mp4">
+</SlidevVideo>
+
+---
+layout: center
 ---
 
 # How do we represent data?
@@ -66,6 +112,7 @@ mdc: true
 - A `Symbol` is like `QProperty`, a `SymbolTable` is like a `QVariantMap`.
 
 ```cpp
+// NOTE: Crude representation
 SymbolTable data{
     {"degrees", IntSymbol{}},
     {"spans", IntSymbol{}},
@@ -77,6 +124,7 @@ SymbolTable data{
 - Data for UI is created procedurally in thousand different places.
 ```cpp
 void create() {
+  // NOTE: Also code we cannot change.
   ControlBox box;
   box.addInt(IntegerSymbol{}, "Degrees"); // Represents an integer input field
   box.addInt(IntegerSymbol{}, "Spans");
@@ -85,6 +133,16 @@ void create() {
   box.open();
 }
 ```
+
+<!--
+- Our goal is to somehow get all this data into the UI.
+-->
+
+---
+
+# Challenge
+
+- Get all this information to the GUI
 
 ---
 
@@ -127,10 +185,11 @@ class Core::MyEditor {
 ```cpp
 class UI::MyEditor : public Core::MyEditor {
   void open() final {}
-  void close() final{};
+  void close() final {};
   QString getQData() const;
   void setQData(const QString &data);
-  QVector<ControlBase*> controls() const;
+  QVector<ControlBase *> controls() const;
+  // Used whenever we had non-standard editor or data to expose.
   QQmlPropertyMap dynamicProperties() const;
 };
 ```
@@ -141,7 +200,6 @@ class UI::MyEditor : public Core::MyEditor {
 - When we needed to expose data to UI, we needed to have a class that inherits from the core and
   exposes it.
 - We used `QQmlPropertyMap` as well.
-- `QQmlPropertyMap`
 -->
 
 ---
@@ -164,11 +222,6 @@ private:
 };
 ```
 
-<!--
-- We already had thousands and thousands lines of code that uses this pattern.
-- There are editors with thousands, sometimes millions of these calls.
--->
-
 ---
 
 # Model/View For UI Controls
@@ -180,8 +233,6 @@ Editor {
     Repeater {
         model: editorData.controls
         delegate: Loader {
-            id: ld
-
             // Information is lost...
             property var modelData
 
@@ -189,7 +240,7 @@ Editor {
             property ControlBase modelData
 
             // One of many possibilities...
-            ColorEditDelegate {
+            sourceComponent: ColorEditDelegate {
                 color: modelData.value
             }
         }
@@ -310,6 +361,11 @@ layout: center
 - We want to control all the data flow from a single point
 - Our data is like JSON
 
+<!--
+- Ideally, we want to be able to run the GUI without any core involvement at all.
+- So that we can run Alias faster with mock data.
+-->
+
 ---
 
 # Enter `QMetaObject` "Abuse"
@@ -345,7 +401,7 @@ SymbolTableModel {
 
 ---
 
-More complex cases...
+Refresher...
 
 <SlidevVideo autoplay controls>
     <source src="/assets/alias-editors.mp4" type="video/mp4">
@@ -371,28 +427,29 @@ SymbolTableModel {
 We just expose what we need, no extra code needed to change the data here.
 
 ```qml
+// Maybe used to visualize a disabled state in another control
 SymbolTableModel {
-    property string title: ""
-    property string type: ""
-    property bool visible: true
-    property bool enabled: true
+    property int width
+    property int height
+    property bool viewEnabled
 }
 ```
 
-```qml
-SymbolTableModel {
-    property string title: ""
-    property string type: ""
-}
-```
+<v-click>
 
 ```qml
 SymbolTableModel {
-    property string title: ""
-    property string type: ""
-    property int counter: 0
+    property string title
+    property int width
+    property int height
+    property bool viewEnabled
+    property SymbolTable drawLayers
+    property SymbolTableList items
+    property SymbolTable mouse
 }
 ```
+
+</v-click>
 
 ---
 
@@ -406,6 +463,7 @@ SymbolTableModel {
     property string type: ""
 }
 
+// CustomControl.qml
 BaseControl {
     property int counter: 0
 }
