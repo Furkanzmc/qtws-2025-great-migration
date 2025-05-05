@@ -30,6 +30,11 @@ mdc: true
 }
 </style>
 
+<!--
+- The declaration of a `SymbolTableModel` is also a contract that designers can easily see without
+  getting into C++.
+-->
+
 ---
 
 # What is Alias?
@@ -56,16 +61,30 @@ mdc: true
 
 ---
 
-# What is the problem we are trying to solve?
+# What are the problems we are trying to solve?
 
-- Reduce code bloat
-- Improve productivity
-- Make our system more configurable
+- Code bloat
+- Developer productivity
+- System inflexibility
+- Developer focused GUI development
 
 <!--
 - The goal is to make sure that we are not constrained by our architecture, and UX can go crazy with
   whatever they want to do.
 -->
+
+---
+
+# What are we trying to achieve?
+
+- Maximum freedom for designing new user experiences
+- Make our system more configurable
+
+---
+layout: center
+---
+
+# What this looks like in practice...
 
 ---
 layout: center
@@ -75,6 +94,10 @@ layout: center
 
 > Alias Custom Puck
 
+<!--
+- Uses the same data source as our menus in a different way
+-->
+
 ---
 layout: center
 ---
@@ -82,6 +105,11 @@ layout: center
 ![layer-bar](./assets/alias-layerbar-2026.gif)
 
 > New way to create a layer
+
+<!--
+- Code for doing those existed and our designers just used it in different ways to create new
+  workflows.
+-->
 
 ---
 layout: center
@@ -98,6 +126,22 @@ More complex cases...
 <SlidevVideo autoplay controls>
     <source src="/assets/alias-editors.mp4" type="video/mp4">
 </SlidevVideo>
+
+---
+
+<SlidevVideo autoplay controls>
+    <source src="/assets/alias-classic-vs-modern.mp4" type="video/mp4">
+</SlidevVideo>
+
+---
+layout: image
+image: ./assets/come-on-loosen-up.gif
+backgroundSize: 30%
+---
+
+<!--
+- In order to achieve those results, we need to loosen up our system.
+-->
 
 ---
 layout: center
@@ -121,6 +165,8 @@ SymbolTable data{
 };
 ```
 
+<v-click>
+
 - Data for UI is created procedurally in thousand different places.
 ```cpp
 void create() {
@@ -133,6 +179,8 @@ void create() {
   box.open();
 }
 ```
+
+</v-click>
 
 <!--
 - Our goal is to somehow get all this data into the UI.
@@ -324,7 +372,7 @@ And recompile...
 
 - It's hard to use static types
 > We have to rely on `var` property type
-- Each change requires a re-build
+- Each change requires a re-build in multiple units
 - Lots of virtual interfaces...
 - Code bloat
 - Function calls has to be converted to `Q_INVOKABLE` methods
@@ -353,13 +401,13 @@ layout: center
 
 # Other Realizations
 
+- Our GUI data is JSON-like
 - Too much boilerplate code to expose data
 - Virtual interfaces create a dependency that we don't like
 - These data types are generic, what they represent just changes based on context
 - The symbols we add to the table might be used for other purposes, so we need more freedom over
   how much we expose
 - We want to control all the data flow from a single point
-- Our data is like JSON
 
 <!--
 - Ideally, we want to be able to run the GUI without any core involvement at all.
@@ -371,24 +419,39 @@ layout: center
 # Enter `QMetaObject` "Abuse"
 
 ```cpp
+// What our data looks like...
 SymbolTable data{
-    {"degrees", IntSymbol{32}},
     {"spans", IntSymbol{-1}},
+    {"faceColor", TuiTripleSymbol{255, 132, 132}},
     {"value", StringSymbol{"Timmy!"}},
     {"greet", FunctionSymbol{[]() { std::clog << "Hello all!\n"; }}},
+    {"menu", SymbolTable{/* Data that represents menu items */}},
 };
 ```
 
-<br>
+<v-click>
 
+````md magic-move
+```qml
+// We have all the types we need in the QML type system
+SymbolTableModel {
+    property int number
+    property string str
+    property color modelColor
+    property point position
+    // And also the ability for custom value types and object types.
+    property myCustomPoint customPosition
+    property MyCustomObject customObject
+}
+```
 ```qml
 SymbolTableModel {
-    property int degrees
+    property color faceColor
     property int spans
     property string value
     property var greet: () => {}
-    // Will be possible at some point... QTBUG-104220
-    property function greet: () => {}
+    property function greet: () => {} // Will be possible at some point... QTBUG-104220
+    property Menu menu
 
     Component.onCompleted: {
         console.log(degrees) // Prints "32"
@@ -398,6 +461,9 @@ SymbolTableModel {
     }
 }
 ```
+````
+
+</v-click>
 
 ---
 
@@ -411,6 +477,7 @@ Refresher...
 
 Here's the data we use to draw those shader balls.
 
+````md magic-move
 ```qml
 SymbolTableModel {
     property int width
@@ -421,12 +488,8 @@ SymbolTableModel {
     property SymbolTable mouse
 }
 ```
-
----
-
-We just expose what we need, no extra code needed to change the data here.
-
 ```qml
+// We can just declare what we want to use.
 // Maybe used to visualize a disabled state in another control
 SymbolTableModel {
     property int width
@@ -434,11 +497,9 @@ SymbolTableModel {
     property bool viewEnabled
 }
 ```
-
-<v-click>
-
 ```qml
 SymbolTableModel {
+    // Or add more that didn't exist before
     property string title
     property int width
     property int height
@@ -448,8 +509,7 @@ SymbolTableModel {
     property SymbolTable mouse
 }
 ```
-
-</v-click>
+````
 
 ---
 
@@ -513,53 +573,10 @@ SymbolTableModel {
 ```
 
 ---
+layout: center
+---
 
 # How Does It Work?
-
-```mermaid
-graph LR;
-    A[Symbol is Updated] --> B[SymbolTableModel is Notified];
-    B --> C;
-    C[QMetaProperty is Updated] --> D[QML Reacts to Changes];
-    D --> E;
-    E[QML Updates Property] --> B;
-    B --> A;
-
-```
-
-<v-click>
-
-````md magic-move
-```cpp
-// SomeWhereOverTheRainbow.cpp
-symbol.notify();
-```
-```cpp
-// SomeWhereOverTheRainbow.cpp
-symbol.notify();
-
-// SymbolTableModel.cpp
-symbol.sigModified.connect(this, [](...) {
-    // The change is handled and the associated `QProperty` is updated.
-})
-```
-````
-
-</v-click>
-
-<v-click>
-
-```qml
-SymbolTableModel {
-    property int symbol
-
-    onSymbolChanged: {
-        console.log("Property value changed")
-    }
-}
-```
-
-</v-click>
 
 ---
 
@@ -570,16 +587,15 @@ class SymbolTableModel : public QObject, public QQmlParserStatus {
 ```
 ```cpp
 class SymbolTableModel : public QObject, public QQmlParserStatus {
-  Q_PROPERTY(SymbolTableProxy* table READ table WRITE setTable
-                                     NOTIFY tableChanged FINAL )
+  // `SymbolTableProxy` is a just a simple wrapper for our symbol table type.
+  Q_PROPERTY(SymbolTableProxy* table ... )
 
   explicit SymbolTableModel(QObject *parent = nullptr);
 };
 ```
 ```cpp
 class SymbolTableModel : public QObject, public QQmlParserStatus {
-  Q_PROPERTY(SymbolTableProxy* table READ table WRITE setTable
-                                     NOTIFY tableChanged FINAL )
+  Q_PROPERTY(SymbolTableProxy* table ... )
 
   explicit SymbolTableModel(QObject *parent = nullptr);
 
@@ -622,6 +638,79 @@ class SymbolSignalBinding : public SymbolPropertyBindingBase {};
 class awQuick::QMLFunctionSymbolExecutor : public QObject { };
 ```
 ````
+
+---
+
+```cpp
+void SymbolTableModel::componentComplete() {
+  assert(!m_componentComplete);
+
+  m_propertyCache.reset(new PropertyCache{*metaObject()});
+  m_methodCache.reset(new MethodCache{*metaObject(), *this});
+
+  // Makes sure that the changes that are made to the table are propagated to the QML properties.
+  initTableListener();
+
+  if (m_tableProxy) {
+    initializeProperties();
+  }
+
+  // Handle object destruction so that we don't have live bindings as
+  // `SymbolTableModel` is being destroyed.
+}
+```
+
+---
+
+```cpp
+void SymbolTableModel::initializeProperties() {
+  for (const QMetaMethod &method : *m_methodCache.get()) {
+    auto symbol = table->findSymbol(method.name().data());
+    // Bind the QML signals to function symbols...
+  }
+
+  for (const QMetaProperty &property : *m_propertyCache.get()) {
+    // Bind the properties to symbols.
+    // These could be primitive types or custom types.
+  }
+
+  m_tableProxy->get()->foreachSymTable([this](auto table) {
+    // Bind the tables to any custom type declared in the QML side.
+  });
+
+  // Sync all the bindings so the initial values are the same
+  syncBinding(*pair.second);
+}
+```
+
+---
+
+```cpp
+void SymbolTableModel::initTableListener() {
+  m_tableListener->sigChanged.connect(
+      this, [&self = *this, &propertyCache = *m_propertyCache.get(),
+             &methodCache = *m_methodCache.get()](Change change) {
+        if (change.type == ModType::TableAdded ||
+            change.type == ModType::TableInserted) {
+          // Find the associated table and update the values in QML
+          // These tables might be represented as abstract list models, so we
+          // get granular updates.
+        } else if (change.type == ModType::TableRemoved) {
+          // Remove an existing binding and clean up.
+        } else if (change.type == ModType::TableReset) {
+          // The table has been reset to a new state, re-initialize everything.
+        } else if (change.type == ModType::TablesCleared) {
+          // Clear all the values in QML side.
+        } else if (change.type == ModType::SymbolAdded) {
+          // Special handling for different types...
+        } else if (change.type == ModType::SymbolRemoved) {
+          // Invalidate existing bindings and clean up
+        } else if (change.type == ModType::SymbolsCleared) {
+          // Similar to `ModType::TablesCleared`
+        }
+      });
+}
+```
 
 ---
 
@@ -696,6 +785,56 @@ SymbolTableModel {
     }
 }
 ```
+
+---
+
+```mermaid
+graph LR;
+    A[Symbol is Updated] --> B[SymbolTableModel is Notified];
+    B --> C;
+    C[QMetaProperty is Updated] --> D[QML Reacts to Changes];
+```
+
+
+```mermaid
+graph LR;
+    E[QML Updates Property] --> B[SymbolTableModel is Notified];
+    B --> A[Symbol is Updated];
+```
+
+<v-click>
+
+````md magic-move
+```cpp
+// SomeWhereOverTheRainbow.cpp
+symbol.notify();
+```
+```cpp
+// SomeWhereOverTheRainbow.cpp
+symbol.notify();
+
+// SymbolTableModel.cpp
+symbol.sigModified.connect(this, [](...) {
+    // The change is handled and the associated `QProperty` is updated.
+})
+```
+````
+
+</v-click>
+
+<v-click>
+
+```qml
+SymbolTableModel {
+    property int symbol
+
+    onSymbolChanged: {
+        console.log("Property value changed")
+    }
+}
+```
+
+</v-click>
 
 ---
 
