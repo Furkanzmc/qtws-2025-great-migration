@@ -37,11 +37,24 @@ mdc: true
 
 ---
 
+# Links
+
+- Autodesk Alias [blogs.autodesk.com/design-studio/](https://blogs.autodesk.com/design-studio/)
+- Furkanzmc [@Github](https://github.com/Furkanzmc)
+- [zmc.space/](https://zmc.space)
+
+---
+
 # What is Alias?
 
 <SlidevVideo autoplay controls>
     <source src="/assets/what-is-alias.mp4" type="video/mp4">
 </SlidevVideo>
+
+---
+layout: image
+image: ./assets/motorworld.jpg
+---
 
 ---
 
@@ -65,6 +78,8 @@ mdc: true
 
 - Code bloat
 - Developer productivity
+- Dependencies
+> Ideally, we want to be able to run GUI without the underlying system
 - System inflexibility
 - Developer focused GUI development
 
@@ -75,10 +90,11 @@ mdc: true
 
 ---
 
-# What are we trying to achieve?
+# What is the dream?
 
 - Maximum freedom for designing new user experiences
 - Make our system more configurable
+- Remove developers as a bottleneck for UX improvements
 
 ---
 layout: center
@@ -90,9 +106,14 @@ layout: center
 layout: center
 ---
 
-![custom-puck](./assets/custom-puck.gif)
-
-> Alias Custom Puck
+<div class="grid grid-cols-2 gap-2">
+  <div>
+    <img src="./assets/custom-puck.gif"/>
+  </div>
+  <div>
+    <img src="./assets/alias-layerbar-2026.gif"/>
+  </div>
+</div>
 
 <!--
 - Uses the same data source as our menus in a different way
@@ -102,30 +123,16 @@ layout: center
 layout: center
 ---
 
-![layer-bar](./assets/alias-layerbar-2026.gif)
-
-> New way to create a layer
-
-<!--
-- Code for doing those existed and our designers just used it in different ways to create new
-  workflows.
--->
-
----
-layout: center
----
-
-![transform-cv](./assets/transform-cv.png)
-
-> New way to represent combo boxes
-
----
-
-More complex cases...
-
-<SlidevVideo autoplay controls>
-    <source src="/assets/alias-editors.mp4" type="video/mp4">
-</SlidevVideo>
+<div class="grid grid-cols-2 gap-2">
+  <div>
+    <img src="./assets/transform-cv.png"/>
+  </div>
+  <div>
+    <SlidevVideo autoplay controls>
+        <source src="/assets/alias-editors.mp4" type="video/mp4">
+    </SlidevVideo>
+  </div>
+</div>
 
 ---
 
@@ -136,7 +143,7 @@ More complex cases...
 ---
 layout: image
 image: ./assets/come-on-loosen-up.gif
-backgroundSize: 30%
+backgroundSize: 40%
 ---
 
 <!--
@@ -167,7 +174,7 @@ SymbolTable data{
 
 <v-click>
 
-- Data for UI is created procedurally in thousand different places.
+- Data for UI is created procedurally in lots of different places.
 ```cpp
 void create() {
   // NOTE: Also code we cannot change.
@@ -215,6 +222,8 @@ ControlBase *-- ControlX
 ```
 
 ---
+layout: center
+---
 
 ```cpp
 class Core::MyEditor {
@@ -226,9 +235,6 @@ class Core::MyEditor {
 ```
 
 <br>
-<br>
-
-<v-click>
 
 ```cpp
 class UI::MyEditor : public Core::MyEditor {
@@ -242,14 +248,14 @@ class UI::MyEditor : public Core::MyEditor {
 };
 ```
 
-</v-click>
-
 <!--
 - When we needed to expose data to UI, we needed to have a class that inherits from the core and
   exposes it.
 - We used `QQmlPropertyMap` as well.
 -->
 
+---
+layout: center
 ---
 
 ```cpp
@@ -437,7 +443,7 @@ SymbolTable data{
 SymbolTableModel {
     property int number
     property string str
-    property color modelColor
+    property color colorType
     property point position
     // And also the ability for custom value types and object types.
     property myCustomPoint customPosition
@@ -526,6 +532,25 @@ SymbolTableModel {
 // CustomControl.qml
 BaseControl {
     property int counter: 0
+}
+```
+
+---
+
+**Supports all built-int types and more...**
+
+```qml
+
+// BaseControl.qml
+SymbolTableModel {
+    // Property declarations for all QML types
+    property int number
+    property real floatingPoint
+    property string str
+    property size size
+    property rect rectangle
+    property point position
+    // ...
 }
 ```
 
@@ -635,6 +660,7 @@ class SymbolPropertyBinding : public SymbolPropertyBindingBase {};
 class SymbolTablePropertyBinding : public SymbolPropertyBindingBase {};
 class SymbolSignalBinding : public SymbolPropertyBindingBase {};
 
+// Special class for executing functions
 class awQuick::QMLFunctionSymbolExecutor : public QObject { };
 ```
 ````
@@ -721,6 +747,7 @@ if (symbolType == TuiSymbol::Type::UI_FUNCTION_SYMBOL) {
 ```
 ```cpp
 if (symbolType == TuiSymbol::Type::UI_FUNCTION_SYMBOL) {
+  // NOTE: `obj` is `QMLFunctionSymbolExecutor` instance
   QJSValue function =
       engine->evaluate("(function(obj) { return (function() { "
                        "let args = [];"
@@ -733,6 +760,7 @@ if (symbolType == TuiSymbol::Type::UI_FUNCTION_SYMBOL) {
 ```
 ```cpp
 if (symbolType == TuiSymbol::Type::UI_FUNCTION_SYMBOL) {
+  // NOTE: `obj` is `QMLFunctionSymbolExecutor` instance
   QJSValue function =
       engine->evaluate("(function(obj) { return (function() { "
                        "let args = [];"
@@ -751,6 +779,7 @@ if (symbolType == TuiSymbol::Type::UI_FUNCTION_SYMBOL) {
 ```
 ```cpp
 if (symbolType == TuiSymbol::Type::UI_FUNCTION_SYMBOL) {
+  // NOTE: `obj` is `QMLFunctionSymbolExecutor` instance
   QJSValue function =
       engine->evaluate("(function(obj) { return (function() { "
                        "let args = [];"
@@ -775,7 +804,7 @@ if (symbolType == TuiSymbol::Type::UI_FUNCTION_SYMBOL) {
 
 ```qml {1-3,10|1-6,9,10|all}
 SymbolTableModel {
-    property var calculateThings
+    property var calculateThings: () => {} // Syntax sugar
     property var getSomeValue
 
     Component.onCompleted: {
@@ -852,6 +881,8 @@ layout: center
 
 # Bonus Content!
 
+Docking implementation in Qt Quick/QML.
+
 ---
 
 <SlidevVideo autoplay controls>
@@ -867,15 +898,20 @@ layout: center
 - Data driven
 > Easy to save and restore docking configurations
 - Flexible
-> Docking layout is done with a positioner that can be overridden
+> Docking layout is done with a positioner that can be customized
 
 ---
 
 ```mermaid
 flowchart LR
-    A(["MainDockController"]) --- B("DockController") & DL("DockingLayout")
-    B --- C("DockingGroup") & D("HotSpot")
-    C --- D
+    W(["Window"]) --- DAT(["DockingAttachedType"])
+    MDC(["MainDockController"]) --- DC("DockController") & DL("DockingLayout")
+    DL --- DGSV(["DockingGroupSplitView"])
+    DC --- DG("DockingGroup") & HS("HotSpot")
+    DG --- HS
+    MDC --- DCM(["DockControllerModel"])
+    DC --- DGM(["DockingGroupModel"])
+    DG --- DDM(["DockingDataModel"])
 ```
 
 ---
@@ -910,8 +946,57 @@ MainDockController {
     dockControllerDelegate: DockController {
         // This allows for all sorts of design choices and customizations.
     }
+    layoutDelegate: DockingLayout {}
+    placeholder: Rectangle {}
     // Customization for where the drop zones are for docking.
     hotspots: [HotSpot {}]
+    floatingWindowDelegate: MyCustomWindow {}
+}
+```
+
+---
+
+```qml
+DockController {
+    contentItem: DockingLayout {
+        // Can be customized for special ways of positioning `DockingGroup`s
+    }
+    dockingGroupDelegate: DockingGroup {
+        // Can be customized to provide details for the layout through attached types
+        // And also for additional bells and whistles for specific actions.
+    }
+    // You could add a title bar, additional affordance for specific actions (Collapse/expand/hide
+    // etc)
+}
+```
+
+---
+
+```qml
+DockingGroup {
+    placeholder: Rectangle {}
+    hotspots: [HotSpot{}]
+
+    // You could add a tab bar to represent the windows inside the group
+    TabBar {}
+    // Or any other custom item you want!
+    StackView {}
+}
+```
+
+---
+
+```qml
+QtQuick.Window {
+    // `Docking` is the attached type used to customize docking behaviour.
+    Docking.windowName: "window_identifier"
+    Docking.contentItem: conItem
+    Docking.title: root.title
+    Docking.enabled: !isModal && root.dockable
+    Docking.onDocked: { }
+    Docking.onUndocked: { }
+    Docking.onAttached: { }
+    Docking.onDetached: { }
 }
 ```
 
@@ -922,6 +1007,7 @@ MainDockController {
 - Window management
 - Event redirection
 - `Item` size management
+- Things happening "out of order"
 
 ---
 layout: image
